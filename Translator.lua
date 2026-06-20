@@ -1,3 +1,10 @@
+--[[By Ccat 不懂的别改了
+ __  __                    /\/|___           ____         _
+|  \/  | ___  _____      _|/\/  |_ _|_ __ ___  / ___|___ __ _| |_ 
+| | \/| |/ _ \/ _ \ \ /\ / /     | || '_ ` _ \  | |   / __/ _` | __|
+| |   | |  __/ (_) \ V  V /     | || | | | | | | |__| (_| (_| | |_ 
+|_|   |_|\___|\___/ \_/\_/       |___|_| |_| |_|  \____\___\__,_|\__|
+]]
 local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 local Lib = loadstring(game:HttpGet(repo .. "Library.lua"))()
 
