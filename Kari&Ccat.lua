@@ -1,5 +1,5 @@
 --!nocheck
--- bc i need to use luau lsp to check syntax error,made by karisob,discord name:"333333T",qq:"3521551513"
+-- bc i need to use luau lsp to check syntax error,made by karisob,discord name:"333333T",qq:"3521551513" ccat,discord name :"Ccat",qq:"3395858053"
 local bit32_band = bit32.band
 local bit32_rshift = bit32.rshift
 
