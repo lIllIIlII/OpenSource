@@ -4,7 +4,7 @@ local bit32_band = bit32.band
 local bit32_rshift = bit32.rshift
 
 local LBC_VERSION_MIN = 3
-local LBC_VERSION_MAX = 12
+local LBC_VERSION_MAX = 13
 
 local LBC_CONSTANT_NIL = 0
 local LBC_CONSTANT_BOOLEAN = 1
