@@ -16,15 +16,18 @@ local LBC_CONSTANT_CLOSURE = 6
 local LBC_CONSTANT_VECTOR = 7
 local LBC_CONSTANT_TABLE_WITH_CONSTANTS = 8
 local LBC_CONSTANT_INTEGER = 9
-local LBC_CONSTANT_VECTORD = 10
-local LBC_CONSTANT_CLASS_SHAPE = 11
+-- v13 (Luau Bytecode.h): CLASS_SHAPE = 10, VECTORD = 11.
+-- The previous order was swapped, which desynced every proto that
+-- contained a vectord or class-shape constant.
+local LBC_CONSTANT_CLASS_SHAPE = 10
+local LBC_CONSTANT_VECTORD = 11
 
 local PASSES = {}
 
 local ROBLOX_OPCODES = {
 	[4] = "POWK",
 	[9] = "MUL",
-	[13] = "JUMPXLEKN",
+	[13] = "JUMPXEQKN",
 	[14] = "JUMPIFNOT",
 	[18] = "CAPTURE",
 	[19] = "GETTABLEN",
@@ -97,9 +100,11 @@ for i = 0, 255 do
 	OPCODES[i] = ROBLOX_OPCODES[i] or ("ROBLOX_OP_" .. tostring(i))
 end
 
+-- Opcodes that are followed by one AUX word.
+-- Verified against 2902 protos / 141039 instruction words from v13 dumps:
+-- 13 and 16 are NOT aux-carrying opcodes in v13. Leaving them in made the
+-- decoder consume the trailing RETURN as an aux word in 9 protos.
 local OPS_WITH_AUX_BYTES = {
-	[13] = true,
-	[16] = true,
 	[26] = true,
 	[42] = true,
 	[48] = true,
