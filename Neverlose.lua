@@ -850,7 +850,13 @@ local PAL = NeverLose.Palette;
 local MET = {
 	K = 1,
 	Compact = false,
-	Sizes = {},
+	Sizes = {
+		Sidebar = 164,
+		Header = 50,
+		Row = 24,
+		Tap = 20,
+		Grip = 22,
+	},
 };
 
 NeverLose.__Metrics = MET;
@@ -954,6 +960,13 @@ function NeverLose.RefreshMetrics()
 	MET.Sizes.Header = math.clamp(MET.u(50) , MET.u(36) , MET.u(58));
 	MET.Sizes.Row = math.clamp(MET.u(24) , MET.u(20) , MET.u(30));
 	MET.Sizes.Tap = MET.u(NeverLose.IsMobile and 28 or 20);
+	MET.Sizes.Grip = MET.u(NeverLose.IsMobile and 26 or 20);
+
+	MET.Sizes.Sidebar = tonumber(MET.Sizes.Sidebar) or 164;
+	MET.Sizes.Header = tonumber(MET.Sizes.Header) or 50;
+	MET.Sizes.Row = tonumber(MET.Sizes.Row) or 24;
+	MET.Sizes.Tap = tonumber(MET.Sizes.Tap) or 20;
+	MET.Sizes.Grip = tonumber(MET.Sizes.Grip) or 20;
 
 	for i = 1 , #Rescale do
 		local e = Rescale[i];
@@ -1343,6 +1356,81 @@ NeverLose.Drag = LPH_NO_VIRTUALIZE(function(InputFrame: Frame, MoveFrame: Frame,
 	end));
 end);
 
+NeverLose.Resize = LPH_NO_VIRTUALIZE(function(GripFrame: Frame, TargetFrame: Frame, OnDone: any, MinW: number, MinH: number)
+	local resizing = false;
+	local startPX = 0;
+	local startPY = 0;
+	local startW = 0;
+	local startH = 0;
+	local minW = MinW or 240;
+	local minH = MinH or 190;
+	local lastW = 0;
+	local lastH = 0;
+
+	local pixelSize = function()
+		local abs = TargetFrame.AbsoluteSize;
+
+		if abs and abs.X > 1 and abs.Y > 1 then
+			return abs.X , abs.Y;
+		end;
+
+		local sz = TargetFrame.Size;
+		local vw , vh = NeverLose.Viewport();
+
+		local w = sz.X.Scale > 0 and (vw * sz.X.Scale + sz.X.Offset) or sz.X.Offset;
+		local h = sz.Y.Scale > 0 and (vh * sz.Y.Scale + sz.Y.Offset) or sz.Y.Offset;
+
+		return w , h;
+	end;
+
+	local apply = function(w , h)
+		local vw , vh = NeverLose.Viewport();
+
+		w = math.clamp(math.round(w) , minW , math.max(minW , vw - MET.u(10)));
+		h = math.clamp(math.round(h) , minH , math.max(minH , vh - MET.u(10)));
+
+		lastW = w;
+		lastH = h;
+
+		TargetFrame.Size = UDim2.fromOffset(w , h);
+
+		if OnDone then
+			pcall(OnDone , w , h);
+		end;
+	end;
+
+	NeverLose:AddSignal(GripFrame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			resizing = true;
+
+			startPX , startPY = NeverLose.PointerXY(input);
+
+			startW , startH = pixelSize();
+		end;
+	end));
+
+	NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
+		if not resizing then
+			return;
+		end;
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			local x , y = NeverLose.PointerXY(input);
+
+			apply(startW + (x - startPX) , startH + (y - startPY));
+		end;
+	end));
+
+	NeverLose:AddSignal(UserInputService.InputEnded:Connect(function(input)
+		if resizing and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+			resizing = false;
+
+			if OnDone and lastW > 0 and lastH > 0 then
+				pcall(OnDone , lastW , lastH);
+			end;
+		end;
+	end));
+end);
 NeverLose.Rounding = LPH_NO_VIRTUALIZE(function(num, numDecimalPlaces)
 	local mult = 10 ^ (numDecimalPlaces or 0);
 	return math.floor(num * mult + 0.5) / mult;
@@ -4735,9 +4823,14 @@ function NeverLose:CreateWindow(Config)
 	Window.__drag = LeftMenuFrame;
 
 	function Window:ApplyLayout()
+		if MET.Sizes.Header == nil or MET.Sizes.Sidebar == nil then
+			pcall(NeverLose.RefreshMetrics);
+		end;
+
 		local compact = MET.Compact;
-		local sidebar = MET.Sizes.Sidebar;
-		local header = MET.Sizes.Header;
+		local sidebar = MET.Sizes.Sidebar or 164;
+		local header = MET.Sizes.Header or 50;
+		local row = MET.Sizes.Row or 24;
 
 		WindowName.Position = UDim2.new(0, MET.u(50), 0, MET.u(5));
 		WindowContent.Position = UDim2.new(0, MET.u(50), 0, MET.u(23));
@@ -4747,7 +4840,7 @@ function NeverLose:CreateWindow(Config)
 
 		if compact then
 			LeftMenuFrame.Position = UDim2.fromOffset(0,0);
-			LeftMenuFrame.Size = UDim2.new(1, 0, 0, header + MET.Sizes.Row + MET.u(6));
+			LeftMenuFrame.Size = UDim2.new(1, 0, 0, header + row + MET.u(6));
 
 			BottomFrame.Visible = false;
 			HeadFrame.Visible = false;
@@ -4817,6 +4910,24 @@ function NeverLose:CreateWindow(Config)
 				rec.resize();
 			end;
 		end;
+
+		if Window.__grip and Window.__grip.Parent then
+			local gw = MET.Sizes.Grip or 20;
+
+			Window.__grip.Size = UDim2.fromOffset(MET.u(gw) , MET.u(gw));
+
+			Window.__grip.Position = UDim2.new(1, 0, 1, 0);
+
+			local mw = math.max(2 , math.round(MET.u(gw) * 0.42));
+			local mt = math.max(1 , math.round(MET.u(gw) * 0.16));
+			local mg = math.max(2 , math.round(MET.u(gw) * 0.22));
+
+			Window.__gripA.Size = UDim2.fromOffset(mw , mt);
+			Window.__gripB.Size = UDim2.fromOffset(mw , mt);
+
+			Window.__gripA.Position = UDim2.new(1, -(mw + mg) , 1, -(mt + mg));
+			Window.__gripB.Position = UDim2.new(1, -mg , 1, -mg);
+		end;
 	end
 
 	task.delay(0.25,function()
@@ -4833,16 +4944,151 @@ function NeverLose:CreateWindow(Config)
 
 	do
 		local Frame = Instance.new("Frame")
-
 		Frame.Parent = WindowFrame
 		Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Frame.BorderSizePixel = 0
-		Frame.Size = UDim2.new(1, 0, 0, 50)
+		Frame.Size = UDim2.new(1, 0, 0, MET.u(50))
 		Frame.ZIndex = 7
 		Frame.BackgroundTransparency = 1;
-
+		Frame.Name = NeverLose.RandomString();
 		NeverLose.Drag(Frame , WindowFrame , 0.15)
+	end
+
+	do
+		local Grip = Instance.new("Frame");
+		local GripCorner = Instance.new("UICorner");
+		local GripStroke = Instance.new("UIStroke");
+		local MarkA = Instance.new("Frame");
+		local MarkB = Instance.new("Frame");
+		local MarkACorner = Instance.new("UICorner");
+		local MarkBCorner = Instance.new("UICorner");
+
+		Grip.Name = NeverLose.RandomString();
+		Grip.Parent = WindowFrame;
+		Grip.AnchorPoint = Vector2.new(1, 1);
+		Grip.BackgroundColor3 = Color3.fromRGB(18, 18, 26);
+		Grip.BackgroundTransparency = 0.35;
+		Grip.BorderSizePixel = 0;
+		Grip.ClipsDescendants = false;
+		Grip.ZIndex = 200;
+		Grip.Active = true;
+
+		GripCorner.CornerRadius = UDim.new(1, 0);
+		GripCorner.Parent = Grip;
+
+		GripStroke.Color = NeverLose.AccentColor;
+		GripStroke.Thickness = 1;
+		GripStroke.Transparency = 0.55;
+		GripStroke.Parent = Grip;
+
+		MarkA.Name = NeverLose.RandomString();
+		MarkA.Parent = Grip;
+		MarkA.AnchorPoint = Vector2.new(1, 1);
+		MarkA.BackgroundColor3 = PAL.Text;
+		MarkA.BackgroundTransparency = 0.62;
+		MarkA.BorderSizePixel = 0;
+		MarkA.Position = UDim2.new(1, 0, 1, 0);
+		MarkACorner.CornerRadius = UDim.new(1, 0);
+		MarkACorner.Parent = MarkA;
+
+		MarkB.Name = NeverLose.RandomString();
+		MarkB.Parent = Grip;
+		MarkB.AnchorPoint = Vector2.new(1, 1);
+		MarkB.BackgroundColor3 = PAL.Text;
+		MarkB.BackgroundTransparency = 0.62;
+		MarkB.BorderSizePixel = 0;
+		MarkB.Position = UDim2.new(1, 0, 1, 0);
+		MarkBCorner.CornerRadius = UDim.new(1, 0);
+		MarkBCorner.Parent = MarkB;
+
+		Window.__grip = Grip;
+		Window.__gripA = MarkA;
+		Window.__gripB = MarkB;
+		Window.__gripStroke = GripStroke;
+
+		local gripW = MET.Sizes.Grip or 20;
+		local markT = math.max(1 , math.round(gripW * 0.16));
+		local markGap = math.max(2 , math.round(gripW * 0.22));
+
+		MarkA.Size = UDim2.fromOffset(math.max(2, math.round(gripW * 0.42)) , markT);
+		MarkB.Size = UDim2.fromOffset(math.max(2, math.round(gripW * 0.42)) , markT);
+
+		MarkA.Position = UDim2.new(1, -(math.max(2, math.round(gripW * 0.42)) + markGap) , 1, -(markT + markGap));
+		MarkB.Position = UDim2.new(1, -markGap , 1, -markGap);
+
+		local resizing = false;
+
+		NeverLose:AddSignal(Grip.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				resizing = true;
+
+				Grip.BackgroundTransparency = 0.05;
+				GripStroke.Transparency = 0;
+				MarkA.BackgroundTransparency = 0.25;
+				MarkB.BackgroundTransparency = 0.25;
+
+				local _ = input;
+			end;
+		end));
+
+		NeverLose:AddSignal(Grip.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				resizing = false;
+
+				Grip.BackgroundTransparency = 0.35;
+				GripStroke.Transparency = 0.55;
+				MarkA.BackgroundTransparency = 0.62;
+				MarkB.BackgroundTransparency = 0.62;
+			end;
+		end));
+
+		NeverLose:AddSignal(Grip.MouseEnter:Connect(function()
+			if not resizing then
+				NeverLose.PlayAnimate(Grip , VSlowTween , {
+					BackgroundTransparency = 0.15
+				});
+
+				NeverLose.PlayAnimate(GripStroke , VSlowTween , {
+					Transparency = 0.2
+				});
+
+				NeverLose.PlayAnimate(MarkA , VSlowTween , {
+					BackgroundTransparency = 0.3
+				});
+
+				NeverLose.PlayAnimate(MarkB , VSlowTween , {
+					BackgroundTransparency = 0.3
+				});
+			end;
+		end));
+
+		NeverLose:AddSignal(Grip.MouseLeave:Connect(function()
+			if not resizing then
+				NeverLose.PlayAnimate(Grip , VSlowTween , {
+					BackgroundTransparency = 0.35
+				});
+
+				NeverLose.PlayAnimate(GripStroke , VSlowTween , {
+					Transparency = 0.55
+				});
+
+				NeverLose.PlayAnimate(MarkA , VSlowTween , {
+					BackgroundTransparency = 0.62
+				});
+
+				NeverLose.PlayAnimate(MarkB , VSlowTween , {
+					BackgroundTransparency = 0.62
+				});
+			end;
+		end));
+
+		NeverLose.Resize(Grip , WindowFrame , function(w , h)
+			Window.Size = UDim2.fromOffset(w , h);
+			Window.__auto = false;
+
+			Window:ApplyLayout();
+		end , MET.u(240) , MET.u(190));
 	end
 
 	UICorner.Parent = WindowFrame
