@@ -1122,11 +1122,23 @@ function NeverLose.LayoutSlider(ref)
 		maxWidth = math.min(available - MET.u(4) , maxWidth * 1.8);
 	end;
 
-	local trackW = math.max(MET.u(40) , maxWidth - ref.lib.MaximumSize - MET.u(10));
+	local trackW = math.max(MET.u(40) , maxWidth - ref.lib.MaximumSize - MET.u(18));
 
-	ref.slide.Size = UDim2.fromOffset(trackW , ref.rowH);
-	ref.value.Size = UDim2.fromOffset(ref.lib.MaximumSize + MET.u(2) , math.max(8 , ref.rowH - MET.u(4)));
-	ref.root.Size = UDim2.fromOffset(trackW + ref.lib.MaximumSize + MET.u(2) , ref.rowH);
+	local rowH = ref.rowH or MET.u(22);
+	local thick = ref.thick or MET.u(5);
+	local knob = ref.knob or MET.u(11);
+
+	ref.slide.Size = UDim2.fromOffset(trackW , rowH);
+
+	ref.value.Size = UDim2.fromOffset(ref.lib.MaximumSize + MET.u(10) , rowH);
+
+	ref.root.Size = UDim2.fromOffset(trackW + ref.lib.MaximumSize + MET.u(10) , rowH);
+
+	local knobRef = ref.slide:FindFirstChild("SLKNOB" , true);
+
+	if knobRef and knobRef:IsA("Frame") then
+		knobRef.Size = UDim2.fromOffset(knob , knob);
+	end;
 end
 
 function NeverLose.RegisterSlider(ref)
@@ -2196,8 +2208,17 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		local Toggle = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
+		local ToggleGrad = Instance.new("UIGradient")
+		local ToggleStroke = Instance.new("UIStroke")
 		local Circle = Instance.new("Frame")
 		local UICorner_2 = Instance.new("UICorner")
+		local CircleGrad = Instance.new("UIGradient")
+		local CircleStroke = Instance.new("UIStroke")
+
+		local tw = MET.u(NeverLose.IsMobile and 46 or 38);
+		local th = MET.u(NeverLose.IsMobile and 26 or 21);
+		local knob = MET.u(NeverLose.IsMobile and 19 or 15);
+		local pad = MET.u(NeverLose.IsMobile and 3 or 2);
 
 		Toggle.Name = NeverLose.RandomString();
 		Toggle.Parent = Handler
@@ -2205,30 +2226,73 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		Toggle.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Toggle.BorderSizePixel = 0
 		Toggle.ClipsDescendants = true
-		Toggle.Size = UDim2.fromOffset(MET.u(NeverLose.IsMobile and 44 or 34), MET.u(NeverLose.IsMobile and 24 or 19))
+		Toggle.Size = UDim2.fromOffset(tw , th)
 		Toggle.ZIndex = ZINdex + 13
 		Toggle.LayoutOrder = -(#Handler:GetChildren() + 5);
 
 		UICorner.CornerRadius = UDim.new(1, 0)
 		UICorner.Parent = Toggle
 
+		ToggleGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 132, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 108, 255))
+		});
+		ToggleGrad.Rotation = 0;
+		ToggleGrad.Transparency = NumberSequence.new(0);
+		ToggleGrad.Parent = Toggle;
+
+		ToggleStroke.Color = NeverLose.AccentColor;
+		ToggleStroke.Thickness = 1;
+		ToggleStroke.Transparency = 1;
+		ToggleStroke.Parent = Toggle;
+
 		Circle.Name = NeverLose.RandomString();
 		Circle.Parent = Toggle
 		Circle.AnchorPoint = Vector2.new(0.5, 0.5)
-		Circle.BackgroundColor3 = NeverLose.Palette.Text
-		Circle.BackgroundTransparency = 0.450
+		Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		Circle.BackgroundTransparency = 0
 		Circle.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Circle.BorderSizePixel = 0
-		Circle.Position = UDim2.new(0.300000012, 0, 0.5, 0)
-		Circle.Size = UDim2.fromOffset(MET.u(NeverLose.IsMobile and 18 or 14), MET.u(NeverLose.IsMobile and 18 or 14))
+		Circle.Position = UDim2.new(0, pad + knob / 2, 0.5, 0)
+		Circle.Size = UDim2.fromOffset(knob , knob)
 		Circle.ZIndex = ZINdex + 14
 
 		UICorner_2.CornerRadius = UDim.new(1, 0)
 		UICorner_2.Parent = Circle
 
+		CircleGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(226, 232, 245))
+		});
+		CircleGrad.Rotation = 90;
+		CircleGrad.Parent = Circle;
+
+		CircleStroke.Color = NeverLose.AccentColor;
+		CircleStroke.Thickness = 1;
+		CircleStroke.Transparency = 0.85;
+		CircleStroke.Parent = Circle;
+
+		NeverLose.__ToggleParts = NeverLose.__ToggleParts or {};
+
+		table.insert(NeverLose.__ToggleParts , {
+			Toggle = Toggle ,
+			Grad = ToggleGrad ,
+			Stroke = ToggleStroke ,
+			Circle = Circle ,
+			CGrad = CircleGrad ,
+			CStroke = CircleStroke ,
+			tw = tw ,
+			th = th ,
+			knob = knob ,
+			pad = pad ,
+		});
+
 		local ToggleLib = {
 			Root = Toggle	
 		};
+
+		local REST_POS = UDim2.new(0, pad + knob / 2, 0.5, 0);
+		local ON_POS = UDim2.new(1, -(pad + knob / 2), 0.5, 0);
 
 		ToggleLib.SetUI = LPH_NO_VIRTUALIZE(function(value)
 			if value then
@@ -2237,21 +2301,48 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					BackgroundColor3 = NeverLose.AccentColor
 				})
 
-				NeverLose.PlayAnimate(Circle,SlowyTween,{
-					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-					BackgroundTransparency = 0,
-					Position = UDim2.new(0.7, 0, 0.5, 0)
+				NeverLose.PlayAnimate(ToggleGrad,SlowyTween,{
+					Transparency = NumberSequence.new(0.12)
 				})
-			else
-				NeverLose.PlayAnimate(Toggle,SlowyTween,{
-					BackgroundTransparency = 0,
-					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
+
+				NeverLose.PlayAnimate(ToggleStroke,SlowyTween,{
+					Transparency = 0
 				})
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-					BackgroundTransparency = 0.500,
-					Position = UDim2.new(0.300000012, 0, 0.5, 0)
+					BackgroundTransparency = 0,
+					Position = ON_POS
+				})
+
+				NeverLose.PlayAnimate(CircleStroke,SlowyTween,{
+					Color = Color3.fromRGB(255, 255, 255),
+					Transparency = 0.6
+				})
+			else
+				NeverLose.PlayAnimate(Toggle,SlowyTween,{
+					BackgroundTransparency = 0,
+					BackgroundColor3 = NeverLose.Palette.Element
+				})
+
+				NeverLose.PlayAnimate(ToggleGrad,SlowyTween,{
+					Transparency = NumberSequence.new(1)
+				})
+
+				NeverLose.PlayAnimate(ToggleStroke,SlowyTween,{
+					Color = NeverLose.Palette.Stroke,
+					Transparency = 0.55
+				})
+
+				NeverLose.PlayAnimate(Circle,SlowyTween,{
+					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BackgroundTransparency = 0.22,
+					Position = REST_POS
+				})
+
+				NeverLose.PlayAnimate(CircleStroke,SlowyTween,{
+					Color = NeverLose.Palette.Stroke,
+					Transparency = 0.7
 				})
 			end;
 		end);
@@ -2262,13 +2353,25 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 			else
 				NeverLose.PlayAnimate(Toggle,SlowyTween,{
 					BackgroundTransparency = 1,
-					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
+					BackgroundColor3 = NeverLose.Palette.Element
+				})
+
+				NeverLose.PlayAnimate(ToggleGrad,SlowyTween,{
+					Transparency = NumberSequence.new(1)
+				})
+
+				NeverLose.PlayAnimate(ToggleStroke,SlowyTween,{
+					Transparency = 1
 				})
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 					BackgroundTransparency = 1,
-					Position = UDim2.new(0.300000012, 0, 0.5, 0)
+					Position = REST_POS
+				})
+
+				NeverLose.PlayAnimate(CircleStroke,SlowyTween,{
+					Transparency = 1
 				})
 			end;
 		end);
@@ -2352,14 +2455,23 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		local UICorner_2 = Instance.new("UICorner")
 		local UIStroke = Instance.new("UIStroke")
 		local ValueLabel = Instance.new("TextBox")
+		local ValueGrad = Instance.new("UIGradient")
 		local SlideMain = Instance.new("Frame")
 		local SlideFrame = Instance.new("Frame")
 		local UICorner_3 = Instance.new("UICorner")
+		local SlideStroke = Instance.new("UIStroke")
 		local SlideMoving = Instance.new("Frame")
 		local UICorner_4 = Instance.new("UICorner")
+		local MoveGrad = Instance.new("UIGradient")
 		local Frame = Instance.new("Frame")
 		local UICorner_5 = Instance.new("UICorner")
-		local boxSize = 2;
+		local FrameGrad = Instance.new("UIGradient")
+		local FrameStroke = Instance.new("UIStroke")
+		local FrameGlow = Instance.new("UIGradient")
+
+		local sRowH = MET.u(22);
+		local sThick = MET.u(NeverLose.IsMobile and 7 or 5);
+		local sKnob = MET.u(NeverLose.IsMobile and 15 or 11);
 
 		Slider.Name = NeverLose.RandomString();
 		Slider.Parent = Handler
@@ -2378,19 +2490,27 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		ValueFrame.Name = NeverLose.RandomString();
 		ValueFrame.Parent = Slider
 		ValueFrame.AnchorPoint = Vector2.new(1, 0)
-		ValueFrame.BackgroundColor3 = Color3.fromRGB(26, 28, 36)
+		ValueFrame.BackgroundColor3 = NeverLose.Palette.ElementHot;
 		ValueFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		ValueFrame.BorderSizePixel = 0
 		ValueFrame.ClipsDescendants = true
 		ValueFrame.Position = UDim2.new(1, 0, 0, 0)
-		ValueFrame.Size = UDim2.fromOffset(SliderLib.MaximumSize + MET.u(2), MET.u(20))
+		ValueFrame.Size = UDim2.fromOffset(SliderLib.MaximumSize + MET.u(10), sRowH)
 		ValueFrame.ZIndex = ZINdex + 13
 
-		NeverLose.Track(UICorner_2, 'CornerRadius', UDim.new(0, 5))
+		ValueGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 45, 57)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 32, 41))
+		});
+		ValueGrad.Rotation = 90;
+		ValueGrad.Parent = ValueFrame;
+
+		NeverLose.Track(UICorner_2, 'CornerRadius', UDim.new(0, 8))
 		UICorner_2.Parent = ValueFrame
 
-		UIStroke.Transparency = 0.650
-		UIStroke.Color = Color3.fromRGB(45, 48, 58)
+		UIStroke.Transparency = 0.55
+		UIStroke.Color = NeverLose.Palette.Stroke
+		UIStroke.Thickness = 1;
 		UIStroke.Parent = ValueFrame
 
 		ValueLabel.Name = NeverLose.RandomString();
@@ -2418,44 +2538,80 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		SlideMain.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		SlideMain.BorderSizePixel = 0
 		SlideMain.Position = UDim2.new(0, 0, 0.5, 0)
-		SlideMain.Size = UDim2.fromOffset(MET.u(Config.Size), MET.u(20))
+		SlideMain.Size = UDim2.fromOffset(MET.u(Config.Size), sRowH)
 		SlideMain.ZIndex = ZINdex + 13
 
 		SlideFrame.Name = NeverLose.RandomString();
 		SlideFrame.Parent = SlideMain
 		SlideFrame.AnchorPoint = Vector2.new(0, 0.5)
-		SlideFrame.BackgroundColor3 = Color3.fromRGB(30, 29, 36)
+		SlideFrame.BackgroundColor3 = NeverLose.Palette.Element
 		SlideFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		SlideFrame.BorderSizePixel = 0
 		SlideFrame.Position = UDim2.new(0, 0, 0.5, 0)
-		SlideFrame.Size = UDim2.fromOffset(MET.u(8), MET.u(6))
+		SlideFrame.Size = UDim2.fromOffset(MET.u(8), sThick)
 		SlideFrame.ZIndex = ZINdex + 13
 
 		UICorner_3.CornerRadius = UDim.new(1, 0)
 		UICorner_3.Parent = SlideFrame
 
+		SlideStroke.Color = NeverLose.Palette.Stroke;
+		SlideStroke.Thickness = 1;
+		SlideStroke.Transparency = 0.5;
+		SlideStroke.Parent = SlideFrame;
+
 		SlideMoving.Name = NeverLose.RandomString();
 		SlideMoving.Parent = SlideFrame
-		SlideMoving.BackgroundColor3 = NeverLose.AccentColor
+		SlideMoving.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		SlideMoving.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		SlideMoving.BorderSizePixel = 0
 		SlideMoving.Size = UDim2.new(SliderLib.GetSize(), 0, 1, 0)
 		SlideMoving.ZIndex = ZINdex + 14
 
+		MoveGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 132, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 108, 255))
+		});
+		MoveGrad.Rotation = 0;
+		MoveGrad.Parent = SlideMoving;
+
 		UICorner_4.CornerRadius = UDim.new(1, 0)
 		UICorner_4.Parent = SlideMoving
 
+		Frame.Name = "SLKNOB";
 		Frame.Parent = SlideMoving
 		Frame.AnchorPoint = Vector2.new(1, 0.5)
 		Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Frame.BorderSizePixel = 0
 		Frame.Position = UDim2.new(1, MET.u(1), 0.5, 0)
-		Frame.Size = UDim2.fromOffset(MET.u(12), MET.u(12))
+		Frame.Size = UDim2.fromOffset(sKnob , sKnob)
 		Frame.ZIndex = ZINdex + 15
 
 		UICorner_5.CornerRadius = UDim.new(1, 0)
 		UICorner_5.Parent = Frame
+
+		FrameGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(228, 233, 246))
+		});
+		FrameGrad.Rotation = 90;
+		FrameGrad.Parent = Frame;
+
+		FrameStroke.Color = Color3.fromRGB(255, 255, 255);
+		FrameStroke.Thickness = 1.5;
+		FrameStroke.Transparency = 0.55;
+		FrameStroke.Parent = Frame;
+
+		FrameGlow.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+		});
+		FrameGlow.Rotation = 45;
+		FrameGlow.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.88),
+			NumberSequenceKeypoint.new(1, 0.72)
+		});
+		FrameGlow.Parent = Frame;
 
 		NeverLose.RegisterSlider({
 			root = Slider,
@@ -2463,7 +2619,9 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 			value = ValueFrame,
 			base = Config.Size,
 			lib = SliderLib,
-			rowH = MET.u(20),
+			rowH = sRowH,
+			thick = sThick,
+			knob = sKnob,
 		});
 
 		local LoadText = LPH_NO_VIRTUALIZE(function()
@@ -2505,11 +2663,11 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 			if value then
 				NeverLose.PlayAnimate(ValueFrame,SlowyTween,{
 					BackgroundTransparency = 0,
-					Size = UDim2.new(0, SliderLib.MaximumSize + boxSize, 0, 18)
+					Size = UDim2.fromOffset(SliderLib.MaximumSize + MET.u(10) , sRowH)
 				});
 
 				NeverLose.PlayAnimate(UIStroke,SlowyTween,{
-					Transparency = 0.650
+					Transparency = 0.55
 				});
 
 				NeverLose.PlayAnimate(ValueLabel,SlowyTween,{
@@ -4822,6 +4980,143 @@ function NeverLose:CreateWindow(Config)
 	Window.__tabContainer = TabContainer;
 	Window.__drag = LeftMenuFrame;
 
+	do
+		local MBar = Instance.new("Frame");
+		local MLogo = Instance.new("ImageLabel");
+		local MLogoCorner = Instance.new("UICorner");
+		local MLogoStroke = Instance.new("UIStroke");
+		local MLogoGrad = Instance.new("UIGradient");
+		local MName = Instance.new("TextLabel");
+		local MContent = Instance.new("TextLabel");
+		local MAcc = Instance.new("ImageLabel");
+		local MAccCorner = Instance.new("UICorner");
+		local MAccStroke = Instance.new("UIStroke");
+		local MLine = Instance.new("Frame");
+
+		MBar.Name = NeverLose.RandomString();
+		MBar.Parent = LeftMenuFrame;
+		MBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255);
+		MBar.BackgroundTransparency = 1;
+		MBar.BorderSizePixel = 0;
+		MBar.Size = UDim2.new(1, 0, 0, 0);
+		MBar.ZIndex = 8;
+		MBar.Visible = false;
+
+		MLogo.Name = NeverLose.RandomString();
+		MLogo.Parent = MBar;
+		MLogo.AnchorPoint = Vector2.new(0, 0.5);
+		MLogo.BackgroundTransparency = 1;
+		MLogo.BorderSizePixel = 0;
+		MLogo.Size = UDim2.fromOffset(MET.u(30), MET.u(30));
+		MLogo.Image = Window.Logo;
+		MLogo.ImageColor3 = NeverLose.IconColor;
+		MLogo.ZIndex = 9;
+
+		MLogoCorner.CornerRadius = UDim.new(1, -4);
+		MLogoCorner.Parent = MLogo;
+
+		MLogoStroke.Color = NeverLose.AccentColor;
+		MLogoStroke.Thickness = 1;
+		MLogoStroke.Transparency = 0.6;
+		MLogoStroke.Parent = MLogo;
+
+		MLogoGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 132, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 120, 255))
+		});
+		MLogoGrad.Rotation = 45;
+		MLogoGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.45),
+			NumberSequenceKeypoint.new(1, 0.1)
+		});
+		MLogoGrad.Parent = MLogo;
+
+		MName.Name = NeverLose.RandomString();
+		MName.Parent = MBar;
+		MName.BackgroundTransparency = 1;
+		MName.BorderSizePixel = 0;
+		MName.Font = Enum.Font.GothamBold;
+		MName.Text = Window.Name;
+		MName.TextColor3 = PAL.Text;
+		MName.TextSize = MET.f(16);
+		MName.TextXAlignment = Enum.TextXAlignment.Left;
+		MName.TextTruncate = Enum.TextTruncate.AtEnd;
+		MName.ZIndex = 9;
+
+		MContent.Name = NeverLose.RandomString();
+		MContent.Parent = MBar;
+		MContent.BackgroundTransparency = 1;
+		MContent.BorderSizePixel = 0;
+		MContent.Font = Enum.Font.GothamMedium;
+		MContent.Text = Window.Content;
+		MContent.TextColor3 = PAL.Text;
+		MContent.TextSize = MET.f(11);
+		MContent.TextTransparency = 0.45;
+		MContent.TextXAlignment = Enum.TextXAlignment.Left;
+		MContent.TextTruncate = Enum.TextTruncate.AtEnd;
+		MContent.ZIndex = 9;
+
+		MAcc.Name = NeverLose.RandomString();
+		MAcc.Parent = MBar;
+		MAcc.AnchorPoint = Vector2.new(1, 0.5);
+		MAcc.BackgroundTransparency = 1;
+		MAcc.BorderSizePixel = 0;
+		MAcc.Size = UDim2.fromOffset(MET.u(28), MET.u(28));
+		MAcc.Image = NeverLose.UserProfile or "";
+		MAcc.ZIndex = 9;
+
+		MAccCorner.CornerRadius = UDim.new(1, 0);
+		MAccCorner.Parent = MAcc;
+
+		MAccStroke.Color = PAL.Stroke;
+		MAccStroke.Thickness = 1;
+		MAccStroke.Transparency = 0.3;
+		MAccStroke.Parent = MAcc;
+
+		MLine.Name = NeverLose.RandomString();
+		MLine.Parent = MBar;
+		MLine.AnchorPoint = Vector2.new(0.5, 1);
+		MLine.BackgroundColor3 = PAL.Stroke;
+		MLine.BackgroundTransparency = 0.55;
+		MLine.BorderSizePixel = 0;
+		MLine.Position = UDim2.new(0.5, 0, 1, 0);
+		MLine.Size = UDim2.new(1, -MET.u(12), 0, 1);
+		MLine.ZIndex = 9;
+
+		Window.__mbar = MBar;
+		Window.__mlogo = MLogo;
+		Window.__mname = MName;
+		Window.__mcontent = MContent;
+		Window.__macc = MAcc;
+		Window.__mline = MLine;
+
+		NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+				return;
+			end;
+
+			if not NeverLose:IsMouseOverFrame(MAcc) then
+				return;
+			end;
+
+			NeverLose.PlayAnimate(MAccStroke , VSlowTween , {
+				Color = NeverLose.AccentColor,
+				Transparency = 0
+			});
+		end));
+
+		NeverLose:AddSignal(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+				return;
+			end;
+
+			NeverLose.PlayAnimate(MAccStroke , VSlowTween , {
+				Color = PAL.Stroke,
+				Transparency = 0.3
+			});
+		end));
+	end
+
 	function Window:ApplyLayout()
 		if MET.Sizes.Header == nil or MET.Sizes.Sidebar == nil then
 			pcall(NeverLose.RefreshMetrics);
@@ -4840,12 +5135,41 @@ function NeverLose:CreateWindow(Config)
 
 		if compact then
 			LeftMenuFrame.Position = UDim2.fromOffset(0,0);
-			LeftMenuFrame.Size = UDim2.new(1, 0, 0, header + row + MET.u(6));
-
+			LeftMenuFrame.Size = UDim2.new(1, 0, 0, header + MET.u(46));
 			BottomFrame.Visible = false;
-			HeadFrame.Visible = false;
+			HeadFrame.Visible = true;
+			HeadFrame.Size = UDim2.new(1, 0, 0, 0);
+			LogoImage.Visible = false;
+			LineFrame.Visible = false;
 
-			LeftScrollingFrame.Position = UDim2.new(0, MET.u(6), 0, header + MET.u(4));
+			if Window.__mbar then
+				local bh = MET.u(40);
+
+				Window.__mbar.Visible = true;
+				Window.__mbar.Size = UDim2.new(1, 0, 0, bh);
+				Window.__mbar.Position = UDim2.fromOffset(0, 0);
+
+				local ls = MET.u(30);
+
+				Window.__mlogo.Size = UDim2.fromOffset(ls , ls);
+				Window.__mlogo.Position = UDim2.new(0, MET.u(10) , 0.5, 0);
+
+				Window.__mname.Position = UDim2.fromOffset(MET.u(10) + ls + MET.u(8) , math.round(bh * 0.20));
+				Window.__mname.Size = UDim2.new(1, -(MET.u(10) + ls + MET.u(8) + MET.u(42)) , 0 , math.round(bh * 0.42));
+
+				Window.__mcontent.Position = UDim2.fromOffset(MET.u(10) + ls + MET.u(8) , math.round(bh * 0.58));
+				Window.__mcontent.Size = UDim2.new(1, -(MET.u(10) + ls + MET.u(8) + MET.u(42)) , 0 , math.round(bh * 0.30));
+
+				Window.__macc.Size = UDim2.fromOffset(MET.u(26) , MET.u(26));
+				Window.__macc.Position = UDim2.new(1, -MET.u(10) , 0.5, 0);
+
+				Window.__mname.TextSize = MET.f(15);
+				Window.__mcontent.TextSize = MET.f(10);
+
+				Window.__mline.Size = UDim2.new(1, -MET.u(12) , 0, 1);
+			end;
+
+			LeftScrollingFrame.Position = UDim2.new(0, MET.u(6), 0, header + MET.u(52));
 			LeftScrollingFrame.Size = UDim2.new(1, -MET.u(12), 1, -(MET.u(10)));
 			LeftScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.X;
 
@@ -4867,6 +5191,12 @@ function NeverLose:CreateWindow(Config)
 
 			BottomFrame.Visible = true;
 			HeadFrame.Visible = true;
+			LogoImage.Visible = true;
+			LineFrame.Visible = true;
+
+			if Window.__mbar then
+				Window.__mbar.Visible = false;
+			end;
 
 			LeftScrollingFrame.Position = UDim2.new(0,0,0, header + MET.u(10));
 			LeftScrollingFrame.Size = UDim2.new(1,-MET.u(10),1, -(header + MET.u(60)));
