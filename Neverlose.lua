@@ -1296,12 +1296,31 @@ NeverLose.CreateInput = LPH_NO_VIRTUALIZE(function(self , Frame , Callback)
 end);
 
 NeverLose.PlayAnimate = LPH_NO_VIRTUALIZE(function(Self , Info , Property)
-	local Tween = TweenService:Create(Self , Info or TweenInfo.new(0.25) , Property);
+	local ok , err = pcall(function()
+		local Tweens = TweenService:Create(Self , Info or TweenInfo.new(0.25) , Property);
+		Tweens:Play();
+	end);
 
-	Tween:Play();
+	if not ok then
+		for Key , Value in next , Property do
+			if typeof(Value) == 'NumberSequence' then
+				pcall(function()
+					Property[Key] = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, Value.Keypoints[1].Value * 0) ,
+						NumberSequenceKeypoint.new(1, Value.Keypoints[#Value.Keypoints].Value * 0)
+					});
+				end);
+			end;
+		end;
 
-	return Tween;
-end);
+		pcall(function()
+			local Tweens = TweenService:Create(Self , Info or TweenInfo.new(0.25) , Property);
+			Tweens:Play();
+		end);
+	end;
+
+	return Self;
+end)
 
 NeverLose.Drag = LPH_NO_VIRTUALIZE(function(InputFrame: Frame, MoveFrame: Frame, Speed : number)
 	local dragToggle: boolean = false;
@@ -5169,8 +5188,8 @@ function NeverLose:CreateWindow(Config)
 				Window.__mline.Size = UDim2.new(1, -MET.u(12) , 0, 1);
 			end;
 
-			LeftScrollingFrame.Position = UDim2.new(0, MET.u(6), 0, header + MET.u(52));
-			LeftScrollingFrame.Size = UDim2.new(1, -MET.u(12), 1, -(MET.u(10)));
+			LeftScrollingFrame.Position = UDim2.fromOffset(0, header + MET.u(42));
+			LeftScrollingFrame.Size = UDim2.new(1, -MET.u(6) , 0, MET.u(34));
 			LeftScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.X;
 
 			UIListLayout.FillDirection = Enum.FillDirection.Horizontal;
@@ -5199,7 +5218,7 @@ function NeverLose:CreateWindow(Config)
 			end;
 
 			LeftScrollingFrame.Position = UDim2.new(0,0,0, header + MET.u(10));
-			LeftScrollingFrame.Size = UDim2.new(1,-MET.u(10),1, -(header + MET.u(60)));
+			LeftScrollingFrame.Size = UDim2.new(1,-MET.u(10),1, -(header + MET.u(66)));
 			LeftScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y;
 
 			UIListLayout.FillDirection = Enum.FillDirection.Vertical;
@@ -8029,10 +8048,343 @@ function NeverLose:Unload()
 	end;
 
 	NeverLose.ScreenGui:Destroy();
-
 	for i,v in next , NeverLose.GlobalSignals do
 		pcall(v.Disconnect,v)
 	end;
+end;
+
+NeverLose.__Marquee = nil;
+
+function NeverLose:CreateMarquee()
+	if NeverLose.__Marquee then
+		return NeverLose.__Marquee;
+	end;
+
+	local MQ = {};
+	local Root = Instance.new("Frame");
+	local List = Instance.new("Frame");
+	local UIListLayout = Instance.new("UIListLayout");
+
+	MQ.Hues = {
+		Color3.fromRGB(255, 99, 110),
+		Color3.fromRGB(255, 176, 68),
+		Color3.fromRGB(255, 231, 92),
+		Color3.fromRGB(126, 231, 105),
+		Color3.fromRGB(72, 214, 214),
+		Color3.fromRGB(90, 155, 255),
+		Color3.fromRGB(160, 130, 255),
+		Color3.fromRGB(240, 120, 210)
+	};
+
+	Root.Name = NeverLose.RandomString();
+	Root.Parent = NeverLose.ScreenGui;
+	Root.AnchorPoint = Vector2.new(1, 0);
+	Root.BackgroundTransparency = 1;
+	Root.BorderSizePixel = 0;
+	Root.Size = UDim2.fromOffset(MET.u(190) , MET.u(300));
+	Root.ZIndex = 300;
+
+	List.Name = NeverLose.RandomString();
+	List.Parent = Root;
+	List.BackgroundTransparency = 1;
+	List.BorderSizePixel = 0;
+	List.Position = UDim2.fromOffset(0, 0);
+	List.Size = UDim2.fromScale(1, 1);
+	List.ZIndex = 300;
+
+	UIListLayout.Name = NeverLose.RandomString();
+	UIListLayout.Parent = List;
+	UIListLayout.FillDirection = Enum.FillDirection.Vertical;
+	UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right;
+	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder;
+	UIListLayout.Padding = UDim.new(0, MET.u(3));
+	UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom;
+	UIListLayout.ZIndex = 300;
+
+	MQ.Root = Root;
+	MQ.List = List;
+	MQ.Layout = UIListLayout;
+	MQ.Renders = {};
+	MQ.Status = false;
+	MQ.Index = 0;
+	MQ.Rows = {};
+
+	local function reposition()
+		local vw , vh = NeverLose.Viewport();
+		local head = MET.u(52);
+
+		Root.Position = UDim2.new(1, -MET.u(14) , 0, head);
+		Root.Size = UDim2.fromOffset(MET.u(190) , math.max(MET.u(120) , vh - head - MET.u(20)));
+	end;
+
+	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		reposition();
+	end));
+
+	reposition();
+
+	function MQ:SetRender(value)
+		MQ.Status = value;
+
+		if value then
+			Root.Visible = true;
+
+			NeverLose.PlayAnimate(Root,SlowyTween,{
+				BackgroundTransparency = 1
+			});
+
+			for i,v in next , MQ.Renders do
+				pcall(v,true);
+			end;
+		else
+			NeverLose.PlayAnimate(Root,SlowyTween,{
+				BackgroundTransparency = 1
+			});
+
+			Root.Visible = false;
+
+			for i,v in next , MQ.Renders do
+				pcall(v,false);
+			end;
+		end;
+	end;
+
+	function MQ:AddRow(IconStr , Name , Hue)
+		if not Name then
+			return nil;
+		end;
+
+		local Row = {};
+		local Frame = Instance.new("Frame");
+		local UICorner = Instance.new("UICorner");
+		local Stroke = Instance.new("UIStroke");
+		local Bar = Instance.new("Frame");
+		local BarCorner = Instance.new("UICorner");
+		local Dot = Instance.new("Frame");
+		local DotCorner = Instance.new("UICorner");
+		local Icon = Instance.new("TextLabel");
+		local Label = Instance.new("TextLabel");
+
+		MQ.Index = MQ.Index + 1;
+
+		local tone = Hue or MQ.Hues[(MQ.Index % #MQ.Hues) + 1];
+
+		Frame.Name = NeverLose.RandomString();
+		Frame.Parent = List;
+		Frame.AnchorPoint = Vector2.new(1, 1);
+		Frame.BackgroundColor3 = NeverLose.Palette.Panel;
+		Frame.BackgroundTransparency = 1;
+		Frame.BorderSizePixel = 0;
+		Frame.LayoutOrder = MQ.Index;
+		Frame.Size = UDim2.fromOffset(MET.u(150) , MET.u(22));
+		Frame.ZIndex = 301;
+
+		UICorner.CornerRadius = UDim.new(1, 0);
+		UICorner.Parent = Frame;
+
+		Stroke.Color = tone;
+		Stroke.Thickness = 1;
+		Stroke.Transparency = 0.45;
+		Stroke.Parent = Frame;
+
+		Bar.Name = NeverLose.RandomString();
+		Bar.Parent = Frame;
+		Bar.AnchorPoint = Vector2.new(0, 0.5);
+		Bar.BackgroundColor3 = tone;
+		Bar.BackgroundTransparency = 0.2;
+		Bar.BorderSizePixel = 0;
+		Bar.Position = UDim2.new(1, -MET.u(2) , 0.5, 0);
+		Bar.Size = UDim2.fromOffset(MET.u(2) , MET.u(11));
+		Bar.ZIndex = 302;
+
+		BarCorner.CornerRadius = UDim.new(1, 0);
+		BarCorner.Parent = Bar;
+
+		Dot.Name = NeverLose.RandomString();
+		Dot.Parent = Frame;
+		Dot.AnchorPoint = Vector2.new(0, 0.5);
+		Dot.BackgroundColor3 = tone;
+		Dot.BackgroundTransparency = 0;
+		Dot.BorderSizePixel = 0;
+		Dot.Position = UDim2.new(1, -MET.u(9) , 0.5, 0);
+		Dot.Size = UDim2.fromOffset(MET.u(4) , MET.u(4));
+		Dot.ZIndex = 303;
+
+		DotCorner.CornerRadius = UDim.new(1, 0);
+		DotCorner.Parent = Dot;
+
+		Icon.Name = NeverLose.RandomString();
+		Icon.Parent = Frame;
+		Icon.AnchorPoint = Vector2.new(1, 0.5);
+		Icon.BackgroundTransparency = 1;
+		Icon.BorderSizePixel = 0;
+		Icon.FontFace = NeverLose.BuiltInBold;
+		Icon.Position = UDim2.new(1, -MET.u(16) , 0.5, 0);
+		Icon.Size = UDim2.fromOffset(MET.u(11) , MET.u(11));
+		Icon.Text = IconStr or "";
+		Icon.TextColor3 = tone;
+		Icon.TextSize = MET.fi(13);
+		Icon.TextTransparency = 0.15;
+		Icon.TextWrapped = true;
+		Icon.ZIndex = 303;
+
+		Label.Name = NeverLose.RandomString();
+		Label.Parent = Frame;
+		Label.AnchorPoint = Vector2.new(1, 0.5);
+		Label.BackgroundTransparency = 1;
+		Label.BorderSizePixel = 0;
+		Label.Font = Enum.Font.GothamBold;
+		Label.Position = UDim2.new(1, -MET.u(22) , 0.5, 0);
+		Label.Size = UDim2.fromOffset(MET.u(1) , MET.u(14));
+		Label.Text = Name;
+		Label.TextColor3 = tone;
+		Label.TextSize = MET.f(12);
+		Label.TextTransparency = 0.1;
+		Label.TextXAlignment = Enum.TextXAlignment.Left;
+		Label.TextTruncate = Enum.TextTruncate.AtEnd;
+		Label.ZIndex = 303;
+
+		local function fit()
+			local size = TextService:GetTextSize(Label.Text , Label.TextSize , Label.Font , Vector2.new(math.huge,math.huge));
+
+			Frame.Size = UDim2.fromOffset(size.X + MET.u(34) , MET.u(22));
+		end;
+
+		fit();
+
+		local function render(value)
+			if value then
+				NeverLose.PlayAnimate(Frame,SlowyTween,{
+					BackgroundTransparency = 0.18
+				})
+
+				NeverLose.PlayAnimate(Stroke,SlowyTween,{
+					Transparency = 0.45
+				})
+
+				NeverLose.PlayAnimate(Label,SlowyTween,{
+					TextTransparency = 0.1
+				})
+
+				NeverLose.PlayAnimate(Icon,SlowyTween,{
+					TextTransparency = 0.15
+				})
+
+				NeverLose.PlayAnimate(Dot,SlowyTween,{
+					BackgroundTransparency = 0
+				})
+
+				NeverLose.PlayAnimate(Bar,SlowyTween,{
+					BackgroundTransparency = 0.2
+				})
+			else
+				NeverLose.PlayAnimate(Frame,SlowyTween,{
+					BackgroundTransparency = 1
+				})
+
+				NeverLose.PlayAnimate(Stroke,SlowyTween,{
+					Transparency = 1
+				})
+
+				NeverLose.PlayAnimate(Label,SlowyTween,{
+					TextTransparency = 1
+				})
+
+				NeverLose.PlayAnimate(Icon,SlowyTween,{
+					TextTransparency = 1
+				})
+
+				NeverLose.PlayAnimate(Dot,SlowyTween,{
+					BackgroundTransparency = 1
+				})
+
+				NeverLose.PlayAnimate(Bar,SlowyTween,{
+					BackgroundTransparency = 1
+				})
+			end;
+		end;
+
+		table.insert(MQ.Renders , render);
+
+		Row.Frame = Frame;
+		Row.Label = Label;
+		Row.Icon = Icon;
+		Row.Stroke = Stroke;
+		Row.Dot = Dot;
+		Row.Bar = Bar;
+		Row.Tone = tone;
+		Row.Render = render;
+
+		Row.SetText = function(t)
+			Label.Text = t;
+			fit();
+		end;
+
+		Row.Remove = function()
+			for i = #MQ.Rows , 1 , -1 do
+				if MQ.Rows[i] == Row then
+					table.remove(MQ.Rows , i);
+					break;
+				end;
+			end;
+
+			if Row.Destroyed then
+				return;
+			end;
+
+			Row.Destroyed = true;
+
+			NeverLose.PlayAnimate(Frame,SlowyTween,{
+				BackgroundTransparency = 1
+			})
+
+			NeverLose.PlayAnimate(Label,SlowyTween,{
+				TextTransparency = 1
+			})
+
+			task.delay(0.18, function()
+				if not Row.Destroyed then
+					return;
+				end;
+
+				Frame:Destroy();
+			end);
+		end;
+
+		Frame:SetPropertyChangedSignal('BackgroundTransparency'):Connect(function()
+			if Frame.BackgroundTransparency >= 1 and Row.Destroyed then
+				Frame:Destroy();
+			end;
+		end);
+
+		table.insert(MQ.Rows , Row);
+
+		if MQ.Status then
+			render(true);
+		end;
+
+		Frame.BackgroundTransparency = 1;
+
+		NeverLose.PlayAnimate(Frame,VSlowTween,{
+			Position = UDim2.new(1, 0, 1, 0)
+		});
+
+		return Row;
+	end;
+
+	function MQ:Clear()
+		for i = #MQ.Rows , 1 , -1 do
+			pcall(MQ.Rows[i].Remove);
+		end;
+	end;
+
+	function MQ:GetRows()
+		return MQ.Rows;
+	end;
+
+	NeverLose.__Marquee = MQ;
+
+	return MQ;
 end;
 
 return NeverLose;
